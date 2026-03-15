@@ -2,19 +2,14 @@ name: NHL Data Scraper
 
 on:
   schedule:
-    # Runs every 4 hours
-    - cron: '0 */4 * * *'
-  # Allow manual trigger from GitHub Actions tab
+    - cron: "0 */4 * * *"
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Reason for manual run'
-        required: false
-        default: 'Manual refresh'
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     permissions:
       contents: write
 
@@ -22,26 +17,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.12"
 
       - name: Install dependencies
         run: pip install requests
 
+      - name: Create data directory
+        run: mkdir -p data
+
       - name: Run NHL scraper
-        run: python scripts/scrape.py
+        run: python scripts/scraper.py
 
-      - name: Show what changed
-        run: git diff --stat data/
-
-      - name: Commit and push updated data
+      - name: Commit and push data files
         run: |
-          git config user.name  "NHL Data Bot"
-          git config user.email "bot@nhl-data.github"
+          git config user.name "NHL Data Bot"
+          git config user.email "nhl-bot@github-actions"
           git add data/
-          git diff --staged --quiet || git commit -m "Auto-update NHL data $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "NHL data update $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
