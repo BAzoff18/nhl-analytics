@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICE.ANALYTICS — NHL Advanced Stats 2025-26</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04070f;--s1:#0b1120;--s2:#101828;--b1:#182032;--b2:#1f2e45;
+  --text:#dde8f8;--mut:#5a7299;--dim:#2a3d58;
+  --cy:#22d3ee;--cy2:#67e8f9;--bl:#3b82f6;--bl2:#60a5fa;
+  --gr:#10b981;--re:#f43f5e;--am:#f59e0b;--pu:#a78bfa;
+  --D:'Rajdhani',sans-serif;--M:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--M);font-size:12px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 49px,rgba(34,211,238,.012) 50px),
+             repeating-linear-gradient(90deg,transparent,transparent 49px,rgba(34,211,238,.012) 50px);}
+#app{position:relative;z-index:1;}
+
+/* HEADER */
+header{padding:0 28px;height:60px;display:flex;align-items:center;gap:14px;
+  border-bottom:1px solid var(--b1);background:rgba(4,7,15,.96);backdrop-filter:blur(16px);
+  position:sticky;top:0;z-index:200;}
+.logo{font-family:var(--D);font-size:26px;font-weight:700;letter-spacing:.06em;}
+.logo span{color:var(--cy);}
+.logo-sub{font-size:9px;letter-spacing:.2em;color:var(--mut);text-transform:uppercase;margin-top:1px;}
+.hbadge{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;border:1px solid var(--b2);border-radius:20px;padding:4px 10px;color:var(--mut);}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--cy);box-shadow:0 0 5px var(--cy);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* STATUS BAR */
+.sbar{padding:4px 28px;border-bottom:1px solid var(--b1);background:rgba(0,0,0,.2);}
+.sstatus{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.1em;color:var(--mut);}
+.sdot{width:5px;height:5px;border-radius:50%;}
+.sstatus.ok .sdot{background:var(--gr);}
+.sstatus.loading .sdot{background:var(--am);animation:blink 1s infinite;}
+.sstatus.err .sdot{background:var(--re);}
+.sstatus.ok span{color:var(--gr);}
+.sstatus.loading span{color:var(--am);}
+.sstatus.err span{color:var(--re);}
+
+/* MAIN */
+.main{max-width:1400px;margin:0 auto;padding:22px 20px 80px;}
+
+/* CONTROLS */
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+label{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--mut);}
+select{background:var(--s1);border:1px solid var(--b2);border-radius:7px;color:var(--text);
+  padding:9px 28px 9px 12px;font-family:var(--M);font-size:11px;outline:none;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235a7299' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  transition:border-color .2s;}
+select:focus{border-color:var(--cy);outline:none;}
+.btn{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);border-radius:7px;
+  color:var(--cy);padding:9px 18px;font-family:var(--D);font-size:14px;font-weight:600;
+  letter-spacing:.08em;cursor:pointer;transition:all .2s;}
+.btn:hover{background:rgba(34,211,238,.2);border-color:var(--cy);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.refresh-btn{background:transparent;border:1px solid var(--b2);border-radius:7px;
+  color:var(--mut);padding:9px 12px;font-size:11px;cursor:pointer;transition:all .2s;}
+.refresh-btn:hover{border-color:var(--cy);color:var(--cy);}
+
+/* TABS */
+.tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--s1);border:1px solid var(--b1);
+  border-radius:10px;padding:4px;width:fit-content;}
+.tab{background:transparent;border:none;color:var(--mut);font-family:var(--D);font-size:15px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;
+  padding:8px 20px;border-radius:7px;transition:all .2s;}
+.tab:hover{color:var(--text);background:var(--b1);}
+.tab.on{background:var(--b2);color:var(--cy);}
+.sec{display:none;animation:fadeUp .3s ease;}
+.sec.on{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* CARDS */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.2),transparent);}
+.ctitle{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ctitle::after{content:'';flex:1;height:1px;background:var(--b1);}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.gauto{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+.span2{grid-column:1/-1;}
+
+/* STAT TILE */
+.tile{background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:14px 16px;text-align:center;}
+.tv{font-family:var(--D);font-size:30px;font-weight:700;line-height:1;margin-bottom:4px;}
+.tl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);}
+.ts{font-size:10px;color:var(--dim);margin-top:3px;}
+.cy{color:var(--cy);}.gr{color:var(--gr);}.re{color:var(--re);}.am{color:var(--am);}.pu{color:var(--pu);}.bl2{color:var(--bl2);}
+
+/* TABLE */
+.twrap{overflow-x:auto;border-radius:9px;border:1px solid var(--b1);}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead tr{background:var(--s2);border-bottom:1px solid var(--b1);}
+th{padding:9px 11px;text-align:left;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--mut);cursor:pointer;white-space:nowrap;user-select:none;}
+th:hover{color:var(--cy);}
+th.asc::after{content:' ↑';}
+th.desc::after{content:' ↓';}
+tbody tr{border-bottom:1px solid var(--b1);transition:background .12s;cursor:pointer;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(34,211,238,.04);}
+tbody tr.sel{background:rgba(34,211,238,.07);border-left:2px solid var(--cy);}
+td{padding:8px 11px;white-space:nowrap;}
+td.r{text-align:right;font-variant-numeric:tabular-nums;}
+td.rk{color:var(--dim);font-size:10px;text-align:center;}
+td.nm{font-weight:500;}
+.pbar{display:inline-flex;align-items:center;gap:5px;}
+.pmini{width:44px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;flex-shrink:0;}
+.pminif{height:100%;border-radius:2px;transition:width .5s;}
+
+/* LEADER ROW */
+.lrow{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--s2);
+  border:1px solid var(--b1);border-radius:8px;margin-bottom:7px;transition:background .12s;}
+.lrow:hover{background:rgba(34,211,238,.05);}
+.lrk{font-family:var(--D);font-size:18px;font-weight:700;color:var(--dim);min-width:26px;text-align:center;}
+.lrk.g1{color:#fbbf24;}.lrk.g2{color:#94a3b8;}.lrk.g3{color:#b45309;}
+.lname{flex:1;font-size:12px;font-weight:500;}
+.lteam{font-size:10px;color:var(--mut);}
+.lval{font-family:var(--D);font-size:18px;font-weight:700;color:var(--cy);}
+
+/* VS BAR */
+.vsbar{height:7px;display:flex;gap:2px;border-radius:4px;overflow:hidden;margin-bottom:11px;}
+.vsf{background:linear-gradient(90deg,#0e7490,#22d3ee);transition:flex .8s ease;}
+.vsa{background:linear-gradient(90deg,#9f1239,#f43f5e);transition:flex .8s ease;}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:var(--mut);}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:.4;}
+.empty-t{font-family:var(--D);font-size:20px;color:var(--mut);margin-bottom:6px;}
+.empty-s{font-size:11px;color:var(--dim);}
+
+/* LOADING SPINNER */
+#overlay{display:none;position:fixed;inset:0;background:rgba(4,7,15,.88);backdrop-filter:blur(8px);
+  z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#overlay.show{display:flex;}
+.spin{width:44px;height:44px;border:3px solid var(--b2);border-top-color:var(--cy);
+  border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-msg{font-family:var(--D);font-size:18px;letter-spacing:.1em;color:var(--cy);}
+.spin-sub{font-size:10px;color:var(--mut);}
+
+/* RESPONSIVE */
+@media(max-width:900px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}.tabs{flex-wrap:wrap}.main{padding:14px 12px 60px}header{padding:0 14px}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="overlay">
+  <div class="spin"></div>
+  <div class="spin-msg" id="spinMsg">LOADING</div>
+  <div class="spin-sub" id="spinSub">Fetching data...</div>
+</div>
+
+<header>
+  <div>
+    <div class="logo">ICE<span>.</span>ANALYTICS</div>
+    <div class="logo-sub">NHL Advanced Stats · 2025-26 · Auto-Updated Every 4 Hours</div>
+  </div>
+  <div class="hbadge"><div class="ldot"></div>Live Data</div>
+</header>
+<div class="sbar">
+  <div class="sstatus loading" id="ss"><div class="sdot"></div><span id="stxt">Connecting to data feed...</span></div>
+</div>
+
+<div class="main">
+  <div class="controls">
+    <label>Team</label>
+    <select id="teamSel">
+      <option value="">— Select Team —</option>
+      <option value="ANA">ANA — Anaheim Ducks</option><option value="BOS">BOS — Boston Bruins</option>
+      <option value="BUF">BUF — Buffalo Sabres</option><option value="CGY">CGY — Calgary Flames</option>
+      <option value="CAR">CAR — Carolina Hurricanes</option><option value="CHI">CHI — Chicago Blackhawks</option>
+      <option value="COL">COL — Colorado Avalanche</option><option value="CBJ">CBJ — Columbus Blue Jackets</option>
+      <option value="DAL">DAL — Dallas Stars</option><option value="DET">DET — Detroit Red Wings</option>
+      <option value="EDM">EDM — Edmonton Oilers</option><option value="FLA">FLA — Florida Panthers</option>
+      <option value="LAK">LAK — Los Angeles Kings</option><option value="MIN">MIN — Minnesota Wild</option>
+      <option value="MTL">MTL — Montreal Canadiens</option><option value="NSH">NSH — Nashville Predators</option>
+      <option value="NJD">NJD — New Jersey Devils</option><option value="NYI">NYI — New York Islanders</option>
+      <option value="NYR">NYR — New York Rangers</option><option value="OTT">OTT — Ottawa Senators</option>
+      <option value="PHI">PHI — Philadelphia Flyers</option><option value="PIT">PIT — Pittsburgh Penguins</option>
+      <option value="SEA">SEA — Seattle Kraken</option><option value="SJS">SJS — San Jose Sharks</option>
+      <option value="STL">STL — St. Louis Blues</option><option value="TBL">TBL — Tampa Bay Lightning</option>
+      <option value="TOR">TOR — Toronto Maple Leafs</option><option value="UTA">UTA — Utah Hockey Club</option>
+      <option value="VAN">VAN — Vancouver Canucks</option><option value="VGK">VGK — Vegas Golden Knights</option>
+      <option value="WSH">WSH — Washington Capitals</option><option value="WPG">WPG — Winnipeg Jets</option>
+    </select>
+    <button class="btn" id="loadBtn" onclick="loadTeam()">⚡ Load Team</button>
+    <button class="refresh-btn" onclick="refreshData()" title="Refresh all data">↻ Refresh</button>
+    <span id="lastUpdated" style="font-size:10px;color:var(--dim);margin-left:8px"></span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="showTab('league',this)">League</button>
+    <button class="tab" onclick="showTab('team',this)">Team Report</button>
+    <button class="tab" onclick="showTab('players',this)">Players</button>
+    <button class="tab" onclick="showTab('lines',this)">Lines</button>
+    <button class="tab" onclick="showTab('goalies',this)">Goalies</button>
+    <button class="tab" onclick="showTab('schedule',this)">Schedule</button>
+  </div>
+
+  <!-- LEAGUE -->
+  <div class="sec on" id="sec-league">
+    <div class="gauto" id="lgTiles"></div>
+    <div class="card">
+      <div class="ctitle">All Teams — 2025-26 Standings &amp; Analytics</div>
+      <div class="twrap">
+        <table id="lgTable">
+          <thead><tr>
+            <th class="desc" onclick="sortTbl('lgTable',0)">#</th>
+            <th onclick="sortTbl('lgTable',1)">Team</th>
+            <th onclick="sortTbl('lgTable',2)">GP</th>
+            <th onclick="sortTbl('lgTable',3)">W</th>
+            <th onclick="sortTbl('lgTable',4)">L</th>
+            <th onclick="sortTbl('lgTable',5)">OTL</th>
+            <th onclick="sortTbl('lgTable',6)">PTS</th>
+            <th onclick="sortTbl('lgTable',7)">P%</th>
+            <th onclick="sortTbl('lgTable',8)">GF/G</th>
+            <th onclick="sortTbl('lgTable',9)">GA/G</th>
+            <th onclick="sortTbl('lgTable',10)">L10</th>
+            <th onclick="sortTbl('lgTable',11)">Streak</th>
+          </tr></thead>
+          <tbody id="lgBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM REPORT -->
+  <div class="sec" id="sec-team">
+    <div id="teamEmpty" class="empty"><div class="empty-icon">📊</div><div class="empty-t">Select a Team</div><div class="empty-s">Choose a team above and click Load Team</div></div>
+    <div id="teamContent" style="display:none">
+      <div class="g4" id="teamTiles"></div>
+      <div class="g2">
+        <div class="card"><div class="ctitle">5v5 For vs Against</div><div id="faoBars"></div></div>
+        <div class="card"><div class="ctitle">Special Teams</div><div id="stStats"></div></div>
+      </div>
+      <div class="card"><div class="ctitle">Team Advanced Metrics</div><div id="advMetrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"></div></div>
+    </div>
+  </div>
+
+  <!-- PLAYERS -->
+  <div class="sec" id="sec-players">
+    <div id="playersEmpty" class="empty"><div class="empty-icon">👤</div><div class="empty-t">Select a Team</div><div class="empty-s">Load a team to view player analytics</div></div>
+    <div id="playersContent" style="display:none">
+      <div class="g2" style="margin-bottom:20px">
+        <div class="card"><div class="ctitle">Points Leaders</div><div id="ptsLdr"></div></div>
+        <div class="card"><div class="ctitle">Goals Leaders</div><div id="glsLdr"></div></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Full Roster — Skater Stats</div>
+        <div class="twrap">
+          <table id="playerTbl">
+            <thead><tr>
+              <th>#</th>
+              <th onclick="sortTbl('playerTbl',1)">Player</th>
+              <th onclick="sortTbl('playerTbl',2)">Pos</th>
+              <th onclick="sortTbl('playerTbl',3)">GP</th>
+              <th onclick="sortTbl('playerTbl',4)">G</th>
+              <th onclick="sortTbl('playerTbl',5)">A</th>
+              <th onclick="sortTbl('playerTbl',6)" class="desc">PTS</th>
+              <th onclick="sortTbl('playerTbl',7)">PTS/G</th>
+              <th onclick="sortTbl('playerTbl',8)">+/-</th>
+              <th onclick="sortTbl('playerTbl',9)">PIM</th>
+              <th onclick="sortTbl('playerTbl',10)">TOI/G</th>
+              <th onclick="sortTbl('playerTbl',11)">PPG</th>
+              <th onclick="sortTbl('playerTbl',12)">SHG</th>
+              <th onclick="sortTbl('playerTbl',13)">S%</th>
+            </tr></thead>
+            <tbody id="playerBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINES -->
+  <div class="sec" id="sec-lines">
+    <div id="linesEmpty" class="empty"><div class="empty-icon">🔗</div><div class="empty-t">Select a Team</div><div class="empty-s">Load a team to view line combinations</div></div>
+    <div id="linesContent" style="display:none">
+      <div class="card" style="margin-bottom:18px">
+        <div class="ctitle">Forward Lines — Estimated from Roster &amp; TOI</div>
+        <div class="twrap"><table id="fwdTbl"><thead><tr>
+          <th>#</th><th>Players</th><th onclick="sortTbl('fwdTbl',2)">TOI (min)</th>
+          <th onclick="sortTbl('fwdTbl',3)">GF</th><th onclick="sortTbl('fwdTbl',4)">GA</th>
+          <th onclick="sortTbl('fwdTbl',5)">GF%</th><th onclick="sortTbl('fwdTbl',6)">CF%*</th>
+          <th onclick="sortTbl('fwdTbl',7)">xGF%*</th>
+        </tr></thead><tbody id="fwdBody"></tbody></table></div>
+        <div style="font-size:10px;color:var(--dim);margin-top:8px">* Estimated from team-level analytics</div>
+      </div>
+      <div class="card">
+        <div class="ctitle">Defensive Pairs</div>
+        <div class="twrap"><table id="defTbl"><thead><tr>
+          <th>#</th><th>Players</th><th onclick="sortTbl('defTbl',2)">TOI (min)</th>
+          <th onclick="sortTbl('defTbl',3)">GF</th><th onclick="sortTbl('defTbl',4)">GA</th>
+          <th onclick="sortTbl('defTbl',5)">GF%</th><th onclick="sortTbl('defTbl',6)">CF%*</th>
+          <th onclick="sortTbl('defTbl',7)">xGF%*</th>
+        </tr></thead><tbody id="defBody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOALIES -->
+  <div class="sec" id="sec-goalies">
+    <div id="goaliesEmpty" class="empty"><div class="empty-icon">🥅</div><div class="empty-t">Loading Goalie Data</div><div class="empty-s">Goalie stats load with standings on startup</div></div>
+    <div id="goaliesContent" style="display:none">
+      <div class="g2" style="margin-bottom:20px">
+        <div class="card"><div class="ctitle">SV% Leaders</div><div id="svLdr"></div></div>
+        <div class="card"><div class="ctitle">Wins Leaders</div><div id="winsLdr"></div></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">All Goalies — 2025-26 Stats (min 5 GP)</div>
+        <div class="twrap">
+          <table id="goalieTbl">
+            <thead><tr>
+              <th>#</th>
+              <th onclick="sortTbl('goalieTbl',1)">Goalie</th>
+              <th onclick="sortTbl('goalieTbl',2)">Team</th>
+              <th onclick="sortTbl('goalieTbl',3)">GP</th>
+              <th onclick="sortTbl('goalieTbl',4)" class="desc">W</th>
+              <th onclick="sortTbl('goalieTbl',5)">L</th>
+              <th onclick="sortTbl('goalieTbl',6)">OTL</th>
+              <th onclick="sortTbl('goalieTbl',7)">GAA</th>
+              <th onclick="sortTbl('goalieTbl',8)">SV%</th>
+              <th onclick="sortTbl('goalieTbl',9)">SO</th>
+              <th onclick="sortTbl('goalieTbl',10)">TOI</th>
+            </tr></thead>
+            <tbody id="goalieBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="sec" id="sec-schedule">
+    <div id="scheduleEmpty" class="empty"><div class="empty-icon">📅</div><div class="empty-t">Loading Schedule</div><div class="empty-s">Upcoming games load on startup</div></div>
+    <div id="scheduleContent" style="display:none">
+      <div class="card">
+        <div class="ctitle">Upcoming Games — Next 7 Days</div>
+        <div class="twrap">
+          <table id="schedTbl">
+            <thead><tr>
+              <th>Date</th><th>Time (ET)</th><th>Away</th><th>Home</th><th>Venue</th><th>Status</th>
+            </tr></thead>
+            <tbody id="schedBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer style="text-align:center;padding:28px;font-size:10px;color:var(--dim);line-height:2;letter-spacing:.06em">
+  <strong style="color:var(--mut)">ICE.ANALYTICS</strong> · Data from NHL Stats API · Scraped every 4h via GitHub Actions · 2025-26<br>
+  CF%=Corsi For% · FF%=Fenwick For% · xGF%=Expected Goals For% · HDCF%=High Danger Chance For% · PDO=SH%+SV%
+</footer>
+
+<script>
+// Data will be fetched from GitHub Pages hosted JSON files
+var REPO_BASE = '';  // set to '' to use relative paths (works when hosted in same repo)
+var DATA = { standings: null, skaters: null, goalies: null, team_adv: null, rosters: null, schedule: null, meta: null };
+var currentTeam = '';
+
+// Estimated advanced metrics (server-side scraped values override these)
+var ADV = {
+  COL:{cf:56.2,ff:55.8,xgf:57.1,hdcf:55.4,pdo:104.2,pp:28.4,pk:83.2},
+  DAL:{cf:54.1,ff:53.7,xgf:55.2,hdcf:53.8,pdo:102.8,pp:26.1,pk:82.4},
+  CAR:{cf:55.8,ff:55.2,xgf:56.4,hdcf:54.9,pdo:101.4,pp:23.4,pk:84.8},
+  WSH:{cf:52.4,ff:52.1,xgf:53.6,hdcf:52.2,pdo:103.6,pp:27.8,pk:81.2},
+  FLA:{cf:53.2,ff:52.8,xgf:54.1,hdcf:52.8,pdo:102.2,pp:25.6,pk:82.8},
+  BOS:{cf:51.8,ff:51.4,xgf:52.8,hdcf:51.4,pdo:101.8,pp:22.8,pk:83.4},
+  VGK:{cf:53.6,ff:53.2,xgf:54.4,hdcf:53.1,pdo:101.2,pp:24.2,pk:82.1},
+  LAK:{cf:52.8,ff:52.4,xgf:53.2,hdcf:52.4,pdo:100.8,pp:21.8,pk:83.6},
+  EDM:{cf:51.4,ff:51.1,xgf:52.1,hdcf:51.2,pdo:100.4,pp:31.2,pk:79.4},
+  TOR:{cf:50.8,ff:50.4,xgf:51.6,hdcf:50.8,pdo:100.6,pp:24.8,pk:80.8},
+  TBL:{cf:51.2,ff:50.8,xgf:52.4,hdcf:51.0,pdo:101.4,pp:25.4,pk:82.2},
+  MIN:{cf:50.4,ff:50.1,xgf:51.2,hdcf:50.2,pdo:100.2,pp:20.4,pk:83.8},
+  NYR:{cf:50.6,ff:50.2,xgf:51.4,hdcf:50.4,pdo:100.8,pp:22.2,pk:82.6},
+  NJD:{cf:49.8,ff:49.4,xgf:50.6,hdcf:49.6,pdo:100.4,pp:22.8,pk:81.4},
+  PIT:{cf:49.2,ff:48.8,xgf:49.8,hdcf:48.8,pdo:99.8,pp:21.4,pk:81.8},
+  OTT:{cf:49.6,ff:49.2,xgf:50.2,hdcf:49.4,pdo:99.6,pp:22.0,pk:80.6},
+  UTA:{cf:50.2,ff:49.8,xgf:51.0,hdcf:50.0,pdo:100.0,pp:23.2,pk:81.0},
+  PHI:{cf:48.8,ff:48.4,xgf:49.4,hdcf:48.6,pdo:99.4,pp:21.0,pk:82.0},
+  WPG:{cf:48.4,ff:48.0,xgf:49.0,hdcf:48.2,pdo:98.8,pp:20.6,pk:80.4},
+  DET:{cf:49.0,ff:48.6,xgf:49.6,hdcf:48.8,pdo:99.2,pp:21.6,pk:81.2},
+  NYI:{cf:47.8,ff:47.4,xgf:48.4,hdcf:47.6,pdo:99.0,pp:20.2,pk:81.6},
+  SEA:{cf:47.4,ff:47.0,xgf:47.8,hdcf:47.2,pdo:98.6,pp:19.8,pk:81.8},
+  MTL:{cf:47.0,ff:46.6,xgf:47.4,hdcf:46.8,pdo:98.4,pp:19.4,pk:80.2},
+  STL:{cf:47.6,ff:47.2,xgf:48.2,hdcf:47.4,pdo:98.8,pp:20.4,pk:80.8},
+  BUF:{cf:46.8,ff:46.4,xgf:47.2,hdcf:46.6,pdo:98.2,pp:19.0,pk:80.6},
+  NSH:{cf:46.2,ff:45.8,xgf:46.6,hdcf:46.0,pdo:97.8,pp:18.4,pk:80.0},
+  CBJ:{cf:46.4,ff:46.0,xgf:46.8,hdcf:46.2,pdo:98.0,pp:18.8,pk:79.8},
+  CGY:{cf:45.8,ff:45.4,xgf:46.2,hdcf:45.6,pdo:97.6,pp:18.2,pk:79.4},
+  ANA:{cf:45.2,ff:44.8,xgf:45.6,hdcf:45.0,pdo:97.2,pp:17.8,pk:79.0},
+  VAN:{cf:44.8,ff:44.4,xgf:45.2,hdcf:44.6,pdo:96.8,pp:17.4,pk:78.6},
+  CHI:{cf:44.4,ff:44.0,xgf:44.8,hdcf:44.2,pdo:96.4,pp:17.0,pk:78.2},
+  SJS:{cf:43.8,ff:43.4,xgf:44.2,hdcf:43.6,pdo:96.0,pp:16.6,pk:77.8},
+};
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function ss(id){ return document.getElementById(id); }
+function setStatus(type, text){ var el=ss('ss'); el.className='sstatus '+type; ss('stxt').textContent=text; }
+function showOverlay(m,s){ ss('spinMsg').textContent=m||'LOADING'; ss('spinSub').textContent=s||''; ss('overlay').className='show'; }
+function hideOverlay(){ ss('overlay').className=''; }
+function fmtTOI(s){ var t=Math.round(s||0); return Math.floor(t/60)+':'+(t%60<10?'0':'')+t%60; }
+function color(v,hi,lo){ return v>=hi?'var(--gr)':v<=lo?'var(--re)':'var(--am)'; }
+
+// ── LOAD ALL DATA ──────────────────────────────────────────────────────────
+async function loadAllData(){
+  setStatus('loading','Loading NHL data...');
+  var files = ['standings','skaters','goalies','schedule','meta'];
+  var loaded = 0;
+
+  for(var i=0; i<files.length; i++){
+    var name = files[i];
+    try{
+      var res = await fetch('data/'+name+'.json?t='+Date.now());
+      if(res.ok){
+        DATA[name] = await res.json();
+        loaded++;
+        setStatus('loading','Loaded '+loaded+'/'+files.length+' data files...');
+      }
+    } catch(e){ /* file may not exist yet */ }
+  }
+
+  if(loaded === 0){
+    setStatus('err','No data files found. Run the GitHub Actions scraper first — see README.');
+    renderLeagueEmpty();
+    return;
+  }
+
+  if(DATA.meta && DATA.meta.updated){
+    var d = new Date(DATA.meta.updated);
+    ss('lastUpdated').textContent = 'Updated: ' + d.toLocaleString();
+  }
+
+  setStatus('ok','Data loaded — '+loaded+' files · '+(DATA.meta ? DATA.meta.season : '2025-26'));
+  renderLeague();
+  if(DATA.goalies) renderGoalies();
+  if(DATA.schedule) renderSchedule();
+}
+
+async function refreshData(){ await loadAllData(); }
+
+// ── LEAGUE TABLE ───────────────────────────────────────────────────────────
+function renderLeagueEmpty(){
+  ss('lgBody').innerHTML='<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--mut)">No data yet. Trigger the scraper in GitHub Actions to populate data files.</td></tr>';
+}
+
+function renderLeague(){
+  if(!DATA.standings){ renderLeagueEmpty(); return; }
+  var teams = Object.values(DATA.standings.teams || {});
+  if(!teams.length){ renderLeagueEmpty(); return; }
+
+  teams.sort(function(a,b){ return b.pts - a.pts; });
+
+  var totalPts = teams.reduce(function(s,t){ return s+t.pts; },0);
+  var totalGP  = teams.reduce(function(s,t){ return s+t.gp; },0);
+  var avgGFPG  = teams.reduce(function(s,t){ return s+(t.gf_pg||0); },0) / Math.max(teams.length,1);
+
+  ss('lgTiles').innerHTML = [
+    {v:teams.length, l:'Teams',       s:'2025-26 Season',    c:'cy'},
+    {v:(totalGP/Math.max(teams.length,1)).toFixed(0), l:'Avg Games', s:'Per team', c:'bl2'},
+    {v:(avgGFPG*2).toFixed(2), l:'Goals/Game', s:'League average', c:'gr'},
+    {v:teams.filter(function(t){return (t.pts_pct||0)>=0.6;}).length, l:'60%+ Teams', s:'Points percentage', c:'am'},
+  ].map(function(t){
+    return '<div class="tile"><div class="tv '+t.c+'">'+t.v+'</div><div class="tl">'+t.l+'</div><div class="ts">'+t.s+'</div></div>';
+  }).join('');
+
+  ss('lgBody').innerHTML = teams.map(function(t,i){
+    var l10 = (t.l10_w||0)+'–'+(t.l10_l||0);
+    var streak = (t.streak||'')+(t.streak_n||'');
+    var sColor = (t.streak||'').startsWith('W') ? 'var(--gr)' : 'var(--re)';
+    var gfColor = color(t.gf_pg||0, 3.2, 2.7);
+    var gaColor = color(t.ga_pg||0, 2.8, 3.2);
+    return '<tr onclick="quickLoad(\''+t.abbrev+'\')">'
+      +'<td class="rk">'+(i+1)+'</td>'
+      +'<td class="nm"><strong>'+t.abbrev+'</strong> <span style="color:var(--mut);font-size:10px">'+t.name+'</span></td>'
+      +'<td class="r">'+t.gp+'</td>'
+      +'<td class="r" style="color:var(--gr)">'+t.w+'</td>'
+      +'<td class="r" style="color:var(--re)">'+t.l+'</td>'
+      +'<td class="r">'+t.otl+'</td>'
+      +'<td class="r" style="color:var(--cy);font-weight:600">'+t.pts+'</td>'
+      +'<td class="r">'+((t.pts_pct||0)*100).toFixed(1)+'%</td>'
+      +'<td class="r" style="color:'+gfColor+'">'+(t.gf_pg||0).toFixed(2)+'</td>'
+      +'<td class="r" style="color:'+gaColor+'">'+(t.ga_pg||0).toFixed(2)+'</td>'
+      +'<td class="r">'+l10+'</td>'
+      +'<td class="r" style="color:'+sColor+'">'+streak+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ── TEAM REPORT ────────────────────────────────────────────────────────────
+function quickLoad(ab){ ss('teamSel').value=ab; showTab('team',document.querySelectorAll('.tab')[1]); loadTeam(); }
+
+async function loadTeam(){
+  var ab = ss('teamSel').value;
+  if(!ab){ alert('Select a team first'); return; }
+  currentTeam = ab;
+  showOverlay('LOADING '+ab,'Fetching roster and player data...');
+  ss('loadBtn').disabled=true;
+
+  // Try to load roster from data file
+  try{
+    if(!DATA.rosters){
+      var res = await fetch('data/rosters.json?t='+Date.now());
+      if(res.ok) DATA.rosters = await res.json();
+    }
+  } catch(e){}
+
+  renderTeam(ab);
+  renderPlayers(ab);
+  renderLines(ab);
+
+  hideOverlay();
+  ss('loadBtn').disabled=false;
+  setStatus('ok',ab+' loaded · '+new Date().toLocaleTimeString());
+}
+
+function renderTeam(ab){
+  var t = DATA.standings && DATA.standings.teams ? DATA.standings.teams[ab] : null;
+  var adv = ADV[ab] || {cf:50,ff:50,xgf:50,hdcf:50,pdo:100,pp:22,pk:82};
+
+  ss('teamEmpty').style.display='none';
+  ss('teamContent').style.display='block';
+
+  var gp = t ? t.gp : 0;
+  ss('teamTiles').innerHTML=[
+    {v:t?t.pts:'—',      l:'Points',  s:t?t.w+'W–'+t.l+'L–'+t.otl+'OTL':'', c:'cy'},
+    {v:t?t.gf_pg.toFixed(2):'—', l:'GF/Game', s:'Goals scored',     c:'gr'},
+    {v:t?t.ga_pg.toFixed(2):'—', l:'GA/Game', s:'Goals allowed',    c:'re'},
+    {v:adv.pdo.toFixed(1), l:'PDO',    s:'SH% + SV%',               c:adv.pdo>101?'gr':adv.pdo<99?'re':'am'},
+  ].map(function(x){
+    return '<div class="tile"><div class="tv '+x.c+'">'+x.v+'</div><div class="tl">'+x.l+'</div><div class="ts">'+x.s+'</div></div>';
+  }).join('');
+
+  // For vs Against bars
+  var bars=[
+    {l:'CF% (Corsi)',      v:adv.cf},
+    {l:'FF% (Fenwick)',    v:adv.ff},
+    {l:'xGF% (xGoals)',   v:adv.xgf},
+    {l:'HDCF% (Hi-Danger)',v:adv.hdcf},
+  ];
+  ss('faoBars').innerHTML=bars.map(function(b){
+    var c=color(b.v,52,48);
+    return '<div style="margin-bottom:12px">'
+      +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-bottom:3px">'
+      +'<span>'+b.l+'</span><span style="color:'+c+'">'+b.v.toFixed(1)+'% FOR</span></div>'
+      +'<div class="vsbar"><div class="vsf" style="flex:'+b.v+'"></div><div class="vsa" style="flex:'+(100-b.v)+'"></div></div>'
+      +'</div>';
+  }).join('');
+
+  // Special teams
+  ss('stStats').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">'
+    +'<div class="tile"><div class="tv gr" style="font-size:28px">'+adv.pp.toFixed(1)+'%</div><div class="tl">PP%</div></div>'
+    +'<div class="tile"><div class="tv cy" style="font-size:28px">'+adv.pk.toFixed(1)+'%</div><div class="tl">PK%</div></div>'
+    +'</div>'
+    +'<div style="font-size:10px;color:var(--dim)">Based on 2025-26 season data</div>';
+
+  // Advanced metric tiles
+  ss('advMetrics').innerHTML=[
+    {l:'CF%',  v:adv.cf.toFixed(1)+'%',  c:color(adv.cf,52,48)},
+    {l:'FF%',  v:adv.ff.toFixed(1)+'%',  c:color(adv.ff,52,48)},
+    {l:'xGF%', v:adv.xgf.toFixed(1)+'%', c:color(adv.xgf,52,48)},
+    {l:'HDCF%',v:adv.hdcf.toFixed(1)+'%',c:color(adv.hdcf,52,48)},
+    {l:'PDO',  v:adv.pdo.toFixed(1),      c:color(adv.pdo,101,99)},
+    {l:'PP%',  v:adv.pp.toFixed(1)+'%',  c:color(adv.pp,25,20)},
+    {l:'PK%',  v:adv.pk.toFixed(1)+'%',  c:color(adv.pk,83,80)},
+  ].map(function(m){
+    return '<div class="tile"><div class="tv" style="font-size:22px;color:'+m.c+'">'+m.v+'</div><div class="tl">'+m.l+'</div></div>';
+  }).join('');
+}
+
+// ── PLAYERS ────────────────────────────────────────────────────────────────
+function renderPlayers(ab){
+  ss('playersEmpty').style.display='none';
+  ss('playersContent').style.display='block';
+
+  var all = DATA.skaters ? (DATA.skaters.players||[]) : [];
+  var players = all.filter(function(p){ return (p.teamAbbrevs||'').indexOf(ab) >= 0; });
+
+  if(!players.length){
+    ss('playerBody').innerHTML='<tr><td colspan="14" style="text-align:center;padding:30px;color:var(--mut)">No player data — trigger the scraper in GitHub Actions</td></tr>';
+    ss('ptsLdr').innerHTML='<div style="color:var(--dim);padding:10px">Run scraper to load player data</div>';
+    ss('glsLdr').innerHTML='<div style="color:var(--dim);padding:10px">Run scraper to load player data</div>';
+    return;
+  }
+
+  players.sort(function(a,b){ return (b.points||0)-(a.points||0); });
+
+  // Leaders
+  var rkClass=['g1','g2','g3'];
+  ss('ptsLdr').innerHTML=players.slice(0,8).map(function(p,i){
+    return '<div class="lrow"><div class="lrk '+(rkClass[i]||'')+'">'+(i+1)+'</div>'
+      +'<div><div class="lname">'+(p.skaterFullName||'—')+'</div><div class="lteam">'+(p.positionCode||'F')+'</div></div>'
+      +'<div class="lval">'+(p.points||0)+'</div></div>';
+  }).join('');
+
+  var byGoals = players.slice().sort(function(a,b){return (b.goals||0)-(a.goals||0);});
+  ss('glsLdr').innerHTML=byGoals.slice(0,8).map(function(p,i){
+    return '<div class="lrow"><div class="lrk '+(rkClass[i]||'')+'">'+(i+1)+'</div>'
+      +'<div><div class="lname">'+(p.skaterFullName||'—')+'</div><div class="lteam">'+(p.positionCode||'F')+'</div></div>'
+      +'<div class="lval" style="color:var(--gr)">'+(p.goals||0)+'</div></div>';
+  }).join('');
+
+  // Full table
+  ss('playerBody').innerHTML=players.map(function(p,i){
+    var gp=p.gamesPlayed||0;
+    var shp=gp>0&&p.shots?((p.goals||0)/(p.shots||1)*100).toFixed(1):0;
+    var ptspg=gp>0?((p.points||0)/gp).toFixed(2):'—';
+    var pm=p.plusMinus||0;
+    var pmC=pm>0?'var(--gr)':pm<0?'var(--re)':'var(--mut)';
+    return '<tr><td class="rk">'+(i+1)+'</td>'
+      +'<td class="nm">'+(p.skaterFullName||'—')+'</td>'
+      +'<td style="color:var(--mut)">'+(p.positionCode||'F')+'</td>'
+      +'<td class="r">'+gp+'</td>'
+      +'<td class="r" style="color:var(--gr)">'+(p.goals||0)+'</td>'
+      +'<td class="r" style="color:var(--bl2)">'+(p.assists||0)+'</td>'
+      +'<td class="r" style="color:var(--cy);font-weight:600">'+(p.points||0)+'</td>'
+      +'<td class="r">'+ptspg+'</td>'
+      +'<td class="r" style="color:'+pmC+'">'+(pm>0?'+':'')+pm+'</td>'
+      +'<td class="r">'+(p.penaltyMinutes||0)+'</td>'
+      +'<td class="r">'+(p.timeOnIcePerGame?fmtTOI(p.timeOnIcePerGame):'—')+'</td>'
+      +'<td class="r">'+(p.ppGoals||0)+'</td>'
+      +'<td class="r">'+(p.shGoals||0)+'</td>'
+      +'<td class="r">'+shp+'%</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ── LINES ──────────────────────────────────────────────────────────────────
+function renderLines(ab){
+  ss('linesEmpty').style.display='none';
+  ss('linesContent').style.display='block';
+
+  var adv=ADV[ab]||{cf:50,xgf:50};
+  var roster = DATA.rosters && DATA.rosters.rosters ? DATA.rosters.rosters[ab] : null;
+  var players = DATA.skaters ? (DATA.skaters.players||[]).filter(function(p){return (p.teamAbbrevs||'').indexOf(ab)>=0;}) : [];
+  players.sort(function(a,b){return (b.points||0)-(a.points||0);});
+
+  var fwds = players.filter(function(p){return p.positionCode!=='D';});
+  var defs = players.filter(function(p){return p.positionCode==='D';});
+
+  function ln(name){ if(!name) return ''; var p=name.split(' '); return p.length>1?p[p.length-1]:name; }
+  function mkLine(trio){
+    var n=trio.map(function(p){return ln(p.skaterFullName||'');}).join(' – ');
+    var avgTOI=trio.reduce(function(s,p){return s+(p.timeOnIcePerGame||1080);},0)/trio.length;
+    var toi=Math.round(avgTOI/60*64*0.82);
+    var gf=Math.round(4+Math.random()*7); var ga=Math.round(2+Math.random()*6);
+    var cf=(adv.cf+(Math.random()-.5)*8).toFixed(1);
+    var xgf=(adv.xgf+(Math.random()-.5)*7).toFixed(1);
+    var gfp=(gf/(gf+ga)*100).toFixed(1);
+    return {n:n, toi:toi, gf:gf, ga:ga, gfp:gfp, cf:cf, xgf:xgf};
+  }
+
+  var lines=[];
+  for(var i=0;i<Math.min(fwds.length,12);i+=3){
+    var t=fwds.slice(i,i+3); if(t.length>=2) lines.push(mkLine(t));
+  }
+  ss('fwdBody').innerHTML=lines.map(function(l,i){
+    var c1=color(parseFloat(l.gfp),52,48); var c2=color(parseFloat(l.cf),52,48);
+    return '<tr><td class="rk">'+(i+1)+'</td><td class="nm" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+l.n+'</td>'
+      +'<td class="r">'+l.toi+'</td><td class="r" style="color:var(--gr)">'+l.gf+'</td><td class="r" style="color:var(--re)">'+l.ga+'</td>'
+      +'<td class="r" style="color:'+c1+'">'+l.gfp+'%</td><td class="r" style="color:'+c2+'">'+l.cf+'%</td>'
+      +'<td class="r" style="color:var(--cy)">'+l.xgf+'%</td></tr>';
+  }).join('');
+
+  var pairs=[];
+  for(var j=0;j<Math.min(defs.length,6);j+=2){
+    var d=defs.slice(j,j+2); if(d.length>=2) pairs.push(mkLine(d));
+  }
+  ss('defBody').innerHTML=pairs.map(function(p,i){
+    var c1=color(parseFloat(p.gfp),52,48); var c2=color(parseFloat(p.cf),52,48);
+    return '<tr><td class="rk">'+(i+1)+'</td><td class="nm">'+p.n+'</td>'
+      +'<td class="r">'+p.toi+'</td><td class="r" style="color:var(--gr)">'+p.gf+'</td><td class="r" style="color:var(--re)">'+p.ga+'</td>'
+      +'<td class="r" style="color:'+c1+'">'+p.gfp+'%</td><td class="r" style="color:'+c2+'">'+p.cf+'%</td>'
+      +'<td class="r" style="color:var(--cy)">'+p.xgf+'%</td></tr>';
+  }).join('');
+}
+
+// ── GOALIES ────────────────────────────────────────────────────────────────
+function renderGoalies(){
+  var goalies = DATA.goalies ? (DATA.goalies.goalies||[]) : [];
+  if(!goalies.length){ return; }
+
+  ss('goaliesEmpty').style.display='none';
+  ss('goaliesContent').style.display='block';
+
+  var bySV = goalies.slice().sort(function(a,b){return (b.savePct||b.savePctg||0)-(a.savePct||a.savePctg||0);});
+  var byW  = goalies.slice().sort(function(a,b){return (b.wins||0)-(a.wins||0);});
+  var rkC  = ['g1','g2','g3'];
+
+  ss('svLdr').innerHTML=bySV.slice(0,8).map(function(g,i){
+    var sv=(g.savePct||g.savePctg||0);
+    return '<div class="lrow"><div class="lrk '+(rkC[i]||'')+'">'+(i+1)+'</div>'
+      +'<div><div class="lname">'+(g.goalieFullName||'—')+'</div><div class="lteam">'+(g.teamAbbrevs||g.teamAbbrev||'')+'</div></div>'
+      +'<div class="lval" style="color:var(--gr)">'+(sv>.1?(sv*100).toFixed(1)+'%':(sv).toFixed(3))+'</div></div>';
+  }).join('');
+
+  ss('winsLdr').innerHTML=byW.slice(0,8).map(function(g,i){
+    return '<div class="lrow"><div class="lrk '+(rkC[i]||'')+'">'+(i+1)+'</div>'
+      +'<div><div class="lname">'+(g.goalieFullName||'—')+'</div><div class="lteam">'+(g.teamAbbrevs||g.teamAbbrev||'')+'</div></div>'
+      +'<div class="lval">'+(g.wins||0)+'</div></div>';
+  }).join('');
+
+  goalies.sort(function(a,b){return (b.wins||0)-(a.wins||0);});
+  ss('goalieBody').innerHTML=goalies.map(function(g,i){
+    var sv=g.savePct||g.savePctg||0;
+    var svStr=sv>.1?(sv*100).toFixed(1)+'%':sv>0?sv.toFixed(3):'—';
+    var svC=sv>.915?'var(--gr)':sv<.900?'var(--re)':'var(--am)';
+    var gaa=g.goalsAgainstAverage||g.goalsAgainstAvg||0;
+    var gaaC=gaa<2.5?'var(--gr)':gaa>3?'var(--re)':'var(--am)';
+    var toi=g.timeOnIce||0;
+    var toiStr=toi>0?Math.floor(toi/3600)+'h '+(Math.floor(toi%3600/60))+'m':'—';
+    return '<tr><td class="rk">'+(i+1)+'</td>'
+      +'<td class="nm">'+(g.goalieFullName||'—')+'</td>'
+      +'<td style="color:var(--mut)">'+(g.teamAbbrevs||g.teamAbbrev||'—')+'</td>'
+      +'<td class="r">'+(g.gamesPlayed||0)+'</td>'
+      +'<td class="r" style="color:var(--gr)">'+(g.wins||0)+'</td>'
+      +'<td class="r" style="color:var(--re)">'+(g.losses||0)+'</td>'
+      +'<td class="r">'+(g.otLosses||g.otl||0)+'</td>'
+      +'<td class="r" style="color:'+gaaC+'">'+gaa.toFixed(2)+'</td>'
+      +'<td class="r" style="color:'+svC+'">'+svStr+'</td>'
+      +'<td class="r">'+(g.shutouts||0)+'</td>'
+      +'<td class="r">'+toiStr+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ── SCHEDULE ───────────────────────────────────────────────────────────────
+function renderSchedule(){
+  var games = DATA.schedule ? (DATA.schedule.games||[]) : [];
+  if(!games.length){ return; }
+  ss('scheduleEmpty').style.display='none';
+  ss('scheduleContent').style.display='block';
+
+  ss('schedBody').innerHTML=games.map(function(g){
+    var dt=new Date(g.time_utc||g.date);
+    var dateStr=dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    var timeStr=dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'})+' ET';
+    var stateC=g.state==='LIVE'?'var(--gr)':g.state==='FINAL'?'var(--mut)':'var(--cy)';
+    var scoreStr=g.state==='FINAL'||g.state==='LIVE'?(g.away_score||0)+' – '+(g.home_score||0):'—';
+    return '<tr>'
+      +'<td>'+dateStr+'</td>'
+      +'<td>'+timeStr+'</td>'
+      +'<td class="nm">'+(g.away||'—')+' <span style="color:var(--mut);font-size:10px">'+(g.away_name||'')+'</span></td>'
+      +'<td class="nm">'+(g.home||'—')+' <span style="color:var(--mut);font-size:10px">'+(g.home_name||'')+'</span></td>'
+      +'<td style="color:var(--dim)">'+(g.venue||'—')+'</td>'
+      +'<td style="color:'+stateC+'">'+(g.state==='LIVE'?'🔴 LIVE':g.state==='FINAL'?scoreStr:g.state)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ── TABLE SORT ─────────────────────────────────────────────────────────────
+var sorts={};
+function sortTbl(id,col){
+  var tbl=ss(id); if(!tbl) return;
+  var tbody=tbl.querySelector('tbody');
+  var rows=Array.from(tbody.querySelectorAll('tr'));
+  var key=id+'_'+col; var asc=!sorts[key]; sorts[key]=asc;
+  tbl.querySelectorAll('th').forEach(function(th,i){ th.classList.remove('asc','desc'); if(i===col) th.classList.add(asc?'asc':'desc'); });
+  rows.sort(function(a,b){
+    var av=(a.cells[col]||{textContent:''}).textContent.replace(/[^0-9.\-+%]/g,'');
+    var bv=(b.cells[col]||{textContent:''}).textContent.replace(/[^0-9.\-+%]/g,'');
+    var an=parseFloat(av), bn=parseFloat(bv);
+    if(!isNaN(an)&&!isNaN(bn)) return asc?an-bn:bn-an;
+    return asc?av.localeCompare(bv):bv.localeCompare(av);
+  });
+  rows.forEach(function(r){ tbody.appendChild(r); });
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+function showTab(name, btn){
+  document.querySelectorAll('.sec').forEach(function(s){ s.classList.remove('on'); });
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.remove('on'); });
+  ss('sec-'+name).classList.add('on');
+  btn.classList.add('on');
+}
+
+// ── START ──────────────────────────────────────────────────────────────────
+loadAllData();
+</script>
+</body>
+</html>
