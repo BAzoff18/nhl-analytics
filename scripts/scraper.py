@@ -255,40 +255,82 @@ def fetch_rosters() -> dict:
 
 # ── LINE COMBINATIONS ─────────────────────────────────────────────────────
 def fetch_line_combos() -> dict:
-    """Fetch forward line and defense pair stats for all teams."""
-    log.info("Fetching line combinations...")
-    lines = {}
+    """
+    Build line combinations from per-player TOI data.
+    Fetches each team roster skater stats sorted by TOI,
+    groups forwards into lines and defenders into pairs by actual TOI rank.
+    This gives the most accurate picture of who is skating together.
+    """
+    log.info("Fetching line combinations from TOI data...")
+    all_lines = {}
 
     for ab in TEAMS:
-        # Forward lines (groups of 3)
-        fwd_data = get(f"{STATS}/skater/faceoffwins", params={
+        # Get ALL skaters for this team sorted by TOI descending
+        data = get(f"{STATS}/skater/summary", params={
             "isAggregate": "false",
             "isGame":      "false",
-            "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON} and teamAbbrev='{ab}'",
-            "start": 0, "limit": 100,
+            "factCayenneExp": "gamesPlayed>=1",
+            "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON} and teamAbbrev=\'{ab}\'",
+            "start": 0,
+            "limit": 30,
+            "sort": '[{"property":"timeOnIcePerGame","direction":"DESC"}]',
         })
 
-        # Use the on-ice combinations endpoint
-        combo_data = get(f"{STATS}/skater/onIce", params={
-            "isAggregate": "false",
-            "isGame":      "false",
-            "factCayenneExp": "timeOnIce>=300",
-            "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON} and teamAbbrev='{ab}'",
-            "start": 0, "limit": 100,
-            "sort": '[{"property":"timeOnIce","direction":"DESC"}]',
-        })
+        if not data or "data" not in data:
+            all_lines[ab] = {"forwards": [], "defense": []}
+            time.sleep(0.3)
+            continue
 
-        if combo_data and "data" in combo_data:
-            lines[ab] = combo_data["data"]
-        else:
-            lines[ab] = []
+        players = data["data"]
 
-        time.sleep(0.3)
+        # Separate forwards and defensemen
+        fwds = [p for p in players if p.get("positionCode","F") != "D"]
+        defs = [p for p in players if p.get("positionCode","") == "D"]
 
-    result = {"updated": datetime.now(timezone.utc).isoformat(), "lines": lines}
+        # Build lines — group by TOI order (most TOI = line 1, etc.)
+        def build_groups(group, size):
+            result = []
+            for i in range(0, min(len(group), size * 4), size):
+                chunk = group[i:i+size]
+                if len(chunk) < 2:
+                    break
+                result.append({
+                    "players": [
+                        {
+                            "name": p.get("skaterFullName",""),
+                            "id":   p.get("playerId"),
+                            "pos":  p.get("positionCode","F"),
+                            "gp":   p.get("gamesPlayed",0),
+                            "g":    p.get("goals",0),
+                            "a":    p.get("assists",0),
+                            "pts":  p.get("points",0),
+                            "toi_pg": round(p.get("timeOnIcePerGame",0)/60, 2),
+                            "plusMinus": p.get("plusMinus",0),
+                        }
+                        for p in chunk
+                    ],
+                    "line_num": i // size + 1,
+                    "avg_toi_pg": round(
+                        sum(p.get("timeOnIcePerGame",0) for p in chunk) / len(chunk) / 60, 2
+                    ),
+                    "combined_pts": sum(p.get("points",0) for p in chunk),
+                    "combined_goals": sum(p.get("goals",0) for p in chunk),
+                    "combined_pm": sum(p.get("plusMinus",0) for p in chunk),
+                })
+            return result
+
+        all_lines[ab] = {
+            "forwards": build_groups(fwds, 3),
+            "defense":  build_groups(defs, 2),
+        }
+        log.info(f"  {ab}: {len(all_lines[ab]['forwards'])} fwd lines, {len(all_lines[ab]['defense'])} def pairs")
+        time.sleep(0.35)
+
+    result = {"updated": datetime.now(timezone.utc).isoformat(), "lines": all_lines}
     save("lines", result)
-    log.info(f"Line combos: {len(lines)} teams")
-    return lines
+    log.info(f"Line combos complete: {len(all_lines)} teams")
+    return all_lines
+
 
 # ── UPCOMING GAMES ────────────────────────────────────────────────────────
 def fetch_schedule(days: int = 7) -> list:
@@ -342,10 +384,87 @@ def save_meta(counts: dict) -> None:
             "rosters":       "data/rosters.json",
             "lines":         "data/lines.json",
             "schedule":      "data/schedule.json",
+            "odds":          "data/odds.json",
         }
     }
     save("meta", meta)
     log.info(f"Meta saved: {meta}")
+
+
+# ── ODDS FROM THE ODDS API ────────────────────────────────────────────────
+def fetch_odds() -> list:
+    """Fetch live NHL odds from The Odds API and save to data/odds.json."""
+    logger.info("Fetching live odds...")
+    ODDS_API_KEY = "67c57937016efcf7a0bfd68fee76e0bd"
+    url = "https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds/"
+    params = {
+        "apiKey": ODDS_API_KEY,
+        "regions": "us",
+        "markets": "h2h,totals",
+        "oddsFormat": "american"
+    }
+    data = get(url, params)
+    if not data or not isinstance(data, list):
+        logger.warning("No odds data returned")
+        save("odds", {"updated": datetime.now(timezone.utc).isoformat(), "games": []})
+        return []
+
+    games = []
+    for g in data:
+        bookmakers = g.get("bookmakers", [])
+        book = next((b for b in bookmakers if b.get("key") == "draftkings"), None)
+        if not book:
+            book = next((b for b in bookmakers if b.get("key") == "fanduel"), None)
+        if not book and bookmakers:
+            book = bookmakers[0]
+        if not book:
+            continue
+
+        markets = book.get("markets", [])
+        h2h = next((m for m in markets if m.get("key") == "h2h"), None)
+        totals = next((m for m in markets if m.get("key") == "totals"), None)
+
+        home_ml = away_ml = ou_line = None
+        if h2h:
+            for o in h2h.get("outcomes", []):
+                if o.get("name") == g.get("home_team"): home_ml = round(o.get("price", 0))
+                if o.get("name") == g.get("away_team"): away_ml = round(o.get("price", 0))
+        if totals:
+            for o in totals.get("outcomes", []):
+                if o.get("name") == "Over": ou_line = o.get("point")
+
+        # Map full team name to abbreviation
+        NAME_MAP = {
+            "Anaheim Ducks":"ANA","Boston Bruins":"BOS","Buffalo Sabres":"BUF",
+            "Calgary Flames":"CGY","Carolina Hurricanes":"CAR","Chicago Blackhawks":"CHI",
+            "Colorado Avalanche":"COL","Columbus Blue Jackets":"CBJ","Dallas Stars":"DAL",
+            "Detroit Red Wings":"DET","Edmonton Oilers":"EDM","Florida Panthers":"FLA",
+            "Los Angeles Kings":"LAK","Minnesota Wild":"MIN","Montreal Canadiens":"MTL",
+            "Nashville Predators":"NSH","New Jersey Devils":"NJD","New York Islanders":"NYI",
+            "New York Rangers":"NYR","Ottawa Senators":"OTT","Philadelphia Flyers":"PHI",
+            "Pittsburgh Penguins":"PIT","Seattle Kraken":"SEA","San Jose Sharks":"SJS",
+            "St. Louis Blues":"STL","Tampa Bay Lightning":"TBL","Toronto Maple Leafs":"TOR",
+            "Utah Hockey Club":"UTA","Vancouver Canucks":"VAN","Vegas Golden Knights":"VGK",
+            "Washington Capitals":"WSH","Winnipeg Jets":"WPG"
+        }
+        home_ab = NAME_MAP.get(g.get("home_team",""), g.get("home_team","")[:3].upper())
+        away_ab = NAME_MAP.get(g.get("away_team",""), g.get("away_team","")[:3].upper())
+
+        games.append({
+            "home": home_ab, "away": away_ab,
+            "home_team": g.get("home_team",""),
+            "away_team": g.get("away_team",""),
+            "home_ml": home_ml, "away_ml": away_ml,
+            "ou_line": ou_line,
+            "commence_time": g.get("commence_time",""),
+            "bookmaker": book.get("title","")
+        })
+
+    result = {"updated": datetime.now(timezone.utc).isoformat(), "games": games}
+    save("odds", result)
+    logger.info(f"Odds: {len(games)} games saved")
+    return games
+
 
 # ── MAIN ──────────────────────────────────────────────────────────────────
 def main():
@@ -372,6 +491,9 @@ def main():
 
     schedule = fetch_schedule(days=7)
     counts["upcoming_games"] = len(schedule)
+
+    odds = fetch_odds()
+    counts["odds_games"] = len(odds)
 
     # Lines take longer — run last
     fetch_line_combos()
