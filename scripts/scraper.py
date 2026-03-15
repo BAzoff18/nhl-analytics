@@ -111,7 +111,7 @@ def fetch_skater_stats() -> list:
         data = get(f"{STATS}/skater/summary", params={
             "isAggregate":      "false",
             "isGame":           "false",
-            "factCayenneExp":   "gamesPlayed>=5",
+            "factCayenneExp":   "gamesPlayed>=1",
             "cayenneExp":       f"gameTypeId=2 and seasonId={SEASON}",
             "start":            start,
             "limit":            limit,
@@ -133,7 +133,7 @@ def fetch_skater_stats() -> list:
     adv_data = get(f"{STATS}/skater/advanced", params={
         "isAggregate": "false",
         "isGame":      "false",
-        "factCayenneExp": "gamesPlayed>=5",
+        "factCayenneExp": "gamesPlayed>=1",
         "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON}",
         "start":       0,
         "limit":       1000,
@@ -161,7 +161,7 @@ def fetch_goalie_stats() -> list:
     data = get(f"{STATS}/goalie/summary", params={
         "isAggregate": "false",
         "isGame":      "false",
-        "factCayenneExp": "gamesPlayed>=5",
+        "factCayenneExp": "gamesPlayed>=1",
         "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON}",
         "start":       0,
         "limit":       200,
@@ -173,7 +173,7 @@ def fetch_goalie_stats() -> list:
     adv = get(f"{STATS}/goalie/advanced", params={
         "isAggregate": "false",
         "isGame":      "false",
-        "factCayenneExp": "gamesPlayed>=5",
+        "factCayenneExp": "gamesPlayed>=1",
         "cayenneExp":  f"gameTypeId=2 and seasonId={SEASON}",
         "start": 0, "limit": 200,
     })
